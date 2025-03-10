@@ -3,6 +3,10 @@ import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 
+import java.awt.Rectangle;
+import java.util.ArrayList;
+import java.util.List;
+
 import java.awt.*;
 
 
@@ -41,8 +45,11 @@ public class Game extends GameCore
     Animation landing;
     
     Sprite	player = null;
+    Sprite npc1 = null;
     ArrayList<Sprite> 	clouds = new ArrayList<Sprite>();
     ArrayList<Tile>		collidedTiles = new ArrayList<Tile>();
+
+    ArrayList<Sprite> npcs = new ArrayList<>();
 
     TileMap tmap = new TileMap();	// Our tile map, note that we load it in init()
     
@@ -90,6 +97,7 @@ public class Game extends GameCore
         
         // Initialise the player with an animation
         player = new Sprite(landing);
+        npc1 = new Sprite(landing);
         
         // Load a single cloud animation
         Animation ca = new Animation();
@@ -120,10 +128,14 @@ public class Game extends GameCore
     public void initialiseGame()
     {
     	total = 0;
-    	      
+
         player.setPosition(200,200);
         player.setVelocity(0,0);
         player.show();
+
+        npc1.setPosition(280,280);
+        npc1.setVelocity(0,0);
+        npc1.show();
     }
     
     /**
@@ -157,6 +169,9 @@ public class Game extends GameCore
         // Apply offsets to player and draw 
         player.setOffsets(xo, yo);
         player.draw(g);
+
+        npc1.setOffsets(xo,yo);
+        npc1.draw(g);
                 
         
         // Show score and status information
@@ -208,7 +223,10 @@ public class Game extends GameCore
     {
     	
         // Make adjustments to the speed of the sprite due to gravity
-        player.setVelocityY(player.getVelocityY()+(gravity*elapsed));
+        if(player.getVelocityY() != 0 || player.getVelocityX() != 0){
+            player.setVelocityY(player.getVelocityY()+(gravity*elapsed));
+        }
+        //player.setVelocityY(player.getVelocityY()+(gravity*elapsed));
     	    	
        	player.setAnimationSpeed(1.0f);
        	
@@ -234,10 +252,23 @@ public class Game extends GameCore
        	
         // Now update the sprites animation and position
         player.update(elapsed);
-       
-        // Then check for any collisions that may have occurred
+        if(player.getVelocityX() != 0 || player.getVelocityY() != 0){
+            // Then check for any collisions that may have occurred
+            checkTileCollision(player, tmap);
+            if(boundingBoxCollision(player,npc1)){
+                npc1.hide();
+            }
+        }
+
+
+
+        //For loop with all sprite npcs to check if they have velocity.
+        //for()
+
+
+
         handleScreenEdge(player, tmap, elapsed);
-        checkTileCollision(player, tmap);
+
     }
     
     
@@ -300,7 +331,11 @@ public class Game extends GameCore
      */
     public boolean boundingBoxCollision(Sprite s1, Sprite s2)
     {
-    	return false;   	
+    	Rectangle s1Rectangle = new Rectangle((int) s1.getX(), (int) s1.getY(), s1.getWidth(),  s1.getHeight());
+        Rectangle s2Rectangle = new Rectangle((int) s2.getX(), (int) s2.getY(), s2.getWidth(),  s2.getHeight());
+
+        return s1Rectangle.intersects(s2Rectangle);
+
     }
     
     /**
@@ -313,49 +348,80 @@ public class Game extends GameCore
 
     public void checkTileCollision(Sprite s, TileMap tmap)
     {
-    	// Empty out our current set of collided tiles
-    	collidedTiles.clear();
-    	
-    	// Take a note of a sprite's current position
-    	float sx = s.getX();
-    	float sy = s.getY();
-    	
-    	// Find out how wide and how tall a tile is
-    	float tileWidth = tmap.getTileWidth();
-    	float tileHeight = tmap.getTileHeight();
-    	
-    	// Divide the sprite’s x coordinate by the width of a tile, to get
-    	// the number of tiles across the x axis that the sprite is positioned at 
-    	int	xtile = (int)(sx / tileWidth);
-    	// The same applies to the y coordinate
-    	int ytile = (int)(sy / tileHeight);
-    	
-    	// What tile character is at the top left of the sprite s?
-    	Tile tl = tmap.getTile(xtile, ytile);
-    	
-    	
-    	if (tl != null && tl.getCharacter() != '.') // If it's not a dot (empty space), handle it
-    	{
-    		// Here we just stop the sprite. 
-    		s.stop();
-    		collidedTiles.add(tl);
-    		
-    		// You should move the sprite to a position that is not colliding
-    	}
-    	
-    	// We need to consider the other corners of the sprite
-    	// The above looked at the top left position, let's look at the bottom left.
-    	xtile = (int)(sx / tileWidth);
-    	ytile = (int)((sy + s.getHeight())/ tileHeight);
-    	Tile bl = tmap.getTile(xtile, ytile);
-    	
-    	// If it's not empty space
-     	if (bl != null && bl.getCharacter() != '.') 
-    	{
-    		// Let's make the sprite bounce
-    		s.setVelocityY(-s.getVelocityY()*0.6f); // Reverse velocity 
-    		collidedTiles.add(bl);
-    	}
+        collidedTiles.clear();
+
+        Rectangle spriteRectangle = new Rectangle(
+                (int) s.getX(), (int) s.getY(), s.getWidth(),  s.getHeight()
+        );
+
+        int tileWidth = tmap.getTileWidth();
+        int tileHeight = tmap.getTileHeight();
+
+        int startX = Math.max(0, (int) (s.getX() / tileWidth));
+        int endX = Math.min(tmap.getMapWidth() - 1, (int) ((s.getX() + s.getWidth()) / tileWidth));
+        int startY = Math.max(0, (int) (s.getY() / tileHeight));
+        int endY = Math.min(tmap.getMapHeight() - 1, (int) ((s.getY() + s.getHeight()) / tileHeight));
+
+        for(int y = startY; y <= endY; y++){
+            for(int x = startX; x <= endX; x++){
+                Tile tile = tmap.getTile(x,y);
+
+                if(tile == null || tile.getCharacter() == '.'){
+                    continue;
+                }
+
+                Rectangle tileRectangle = new Rectangle(
+                        x * tileWidth, y * tileHeight, tileWidth, tileHeight
+                );
+
+                if(spriteRectangle.intersects(tileRectangle)){
+                    collidedTiles.add(tile);
+
+                    handleCollision(s,spriteRectangle,tileRectangle);
+                }
+            }
+        }
+
+    }
+
+    public void handleCollision(Sprite s, Rectangle spriteRectangle,Rectangle tileRectangle){
+
+        int xOverlap = Math.min(
+                spriteRectangle.x + spriteRectangle.width - tileRectangle.x,
+                tileRectangle.x + tileRectangle.width - spriteRectangle.x
+        );
+        int yOverlap = Math.min(
+                spriteRectangle.y + spriteRectangle.height - tileRectangle.y,
+                tileRectangle.y + tileRectangle.height - spriteRectangle.y
+        );
+
+        if (xOverlap < yOverlap) {
+
+            if (spriteRectangle.x < tileRectangle.x) {
+
+                s.setX(tileRectangle.x - spriteRectangle.width);
+
+            } else {
+
+                s.setX(tileRectangle.x + tileRectangle.width);
+            }
+
+            s.setVelocityX(0);
+
+        } else {
+
+            if (spriteRectangle.y < tileRectangle.y) {
+
+                s.setY(tileRectangle.y - spriteRectangle.height);
+
+            } else {
+
+                s.setY(tileRectangle.y + tileRectangle.height);
+
+            }
+
+            s.setVelocityY(0);
+        }
     }
 
 
