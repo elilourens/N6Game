@@ -43,6 +43,7 @@ public class Game extends GameCore
 
     // Game resources
     Animation landing;
+    Animation idle;
     
     Sprite	player = null;
     Sprite npc1 = null;
@@ -86,7 +87,7 @@ public class Game extends GameCore
         // Load the tile map and print it out so we can check it is valid
         tmap.loadMap("maps", "map.txt");
         
-        setSize(tmap.getPixelWidth()/4, tmap.getPixelHeight());
+        setSize(tmap.getPixelWidth()/2, tmap.getPixelHeight());
         setVisible(true);
 
         // Create a set of background sprites that we can 
@@ -94,10 +95,16 @@ public class Game extends GameCore
         
         landing = new Animation();
         landing.loadAnimationFromSheet("images/landbird.png", 4, 1, 60);
+
+
+        idle = new Animation();
+        idle.loadAnimationFromSheet("images/idle.png",9,1,60);
+
+        idle.play();
         
         // Initialise the player with an animation
         player = new Sprite(landing);
-        npc1 = new Sprite(landing);
+        npc1 = new Sprite(idle);
         
         // Load a single cloud animation
         Animation ca = new Animation();
@@ -172,7 +179,7 @@ public class Game extends GameCore
 
         npc1.setOffsets(xo,yo);
         npc1.draw(g);
-                
+
         
         // Show score and status information
         String msg = String.format("Score: %d", total/100);
@@ -229,6 +236,7 @@ public class Game extends GameCore
         //player.setVelocityY(player.getVelocityY()+(gravity*elapsed));
     	    	
        	player.setAnimationSpeed(1.0f);
+        npc1.setAnimationSpeed(1.0f);
        	
        	if (flap) 
        	{
@@ -252,6 +260,9 @@ public class Game extends GameCore
        	
         // Now update the sprites animation and position
         player.update(elapsed);
+        npc1.update(elapsed);
+
+
         if(player.getVelocityX() != 0 || player.getVelocityY() != 0){
             // Then check for any collisions that may have occurred
             checkTileCollision(player, tmap);

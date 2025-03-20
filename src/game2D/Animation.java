@@ -1,13 +1,12 @@
 package game2D;
 
-import java.awt.Image;
-import java.awt.Toolkit;
+import java.awt.*;
 import java.awt.image.CropImageFilter;
 import java.awt.image.FilteredImageSource;
 import java.awt.image.ImageFilter;
 import java.util.ArrayList;
 
-import javax.swing.ImageIcon;
+import javax.swing.*;
 
 /**
     The Animation class manages a series of images (frames) and
@@ -180,12 +179,15 @@ public class Animation {
     public void loadAnimationFromSheet(String fileName, int columns, int rows, int frameDuration)
     {
     	Image sheet = new ImageIcon(fileName).getImage();
+
     	Image[] images = getImagesFromSheet(sheet, columns, rows);
     	
     	for (int i=0; i<images.length; i++)
     	{
-    		// addFrame(images[i], frameDuration); This causes flashing on load.
-    		addFrame(new ImageIcon(images[i]).getImage(), frameDuration);
+            //System.out.println(fileName);
+            //
+            addFrame(images[i], frameDuration); //This causes flashing on load.
+    		//addFrame(new ImageIcon(images[i]).getImage(), frameDuration);
     	}
     }
     
@@ -203,7 +205,7 @@ public class Animation {
     private Image[] getImagesFromSheet(Image sheet, int columns, int rows) {
 
         // basic method to achieve split of sprite sheet
-        // overloading could be used to achieve more complex things 
+        // overloading could be used to achieve more complex things
     	// such as sheets where all images are not the same dimensions
         // deliberately 'overcommented' for clarity when integrating with
     	// main engine
@@ -218,30 +220,50 @@ public class Animation {
         int width = sheet.getWidth(null)/columns;
         int height = sheet.getHeight(null)/rows;
 
+
+        System.out.println("Sheet size: " + sheet.getWidth(null) + "x" + sheet.getHeight(null));
+        System.out.println("Calculated sprite size: " + width + "x" + height);
         // for each column in each row
-        for(int i = 0; i < rows; i++) 
+        for(int i = 0; i < rows; i++)
         {
-            for(int j = 0; j < columns; j++) 
+            for(int j = 0; j < columns; j++)
             {
             	// create an image filter
             	// top left (x) = j*width, (y) = i*height
             	// extract rectangular region of width and height from origin x,y
             	ImageFilter cropper = new CropImageFilter(j*width,i*height, width, height);
-            	
+
                 // create image source based on original sprite sheet with filter applied
                 // results in image source for cropped image being generated
                 FilteredImageSource cropped = new FilteredImageSource(sheet.getSource(), cropper);
-                
+
                 // create a new image using generated image source and store in appropriate array element
                 split[count] = Toolkit.getDefaultToolkit().createImage(cropped);
-                        
+
                 // increment count to prevent elements being overwritten
                 count++;
             }
         }
-
+        displayImages(split);
         // return array
         return split;
+
+    }
+
+    public void displayImages(Image[] images) {
+        JFrame frame = new JFrame("Sprite Sheet Frames");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setLayout(new GridLayout(0, 5));
+
+        for (int i = 0 ; i < images.length; i++) {
+            JLabel label = new JLabel(new ImageIcon(images[i]));
+            JLabel temp = new JLabel("" + i);
+            frame.add(temp);
+            frame.add(label);
+        }
+
+        frame.pack();
+        frame.setVisible(true);
     }
 
     /**
