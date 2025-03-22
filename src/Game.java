@@ -31,19 +31,22 @@ public class Game extends GameCore
 	static int screenHeight = 384;
 
 	// Game constants
-    float 	lift = 0.005f;
+
     float	gravity = 0.0001f;
-    float	fly = -0.04f;
+
     float	moveSpeed = 0.05f;
     
     // Game state flags
-    boolean flap = false;
+    boolean jump = false;
+    boolean canJump = false;
     boolean moveRight = false;
+    boolean moveLeft = false;
     boolean debug = true;		
 
     // Game resources
     Animation landing;
     Animation idle;
+    Animation run;
     
     Sprite	player = null;
     Sprite npc1 = null;
@@ -96,14 +99,16 @@ public class Game extends GameCore
         landing = new Animation();
         landing.loadAnimationFromSheet("images/landbird.png", 4, 1, 60);
 
+        run = new Animation();
+        run.loadAnimationFromSheet("images/run.png",6,1,100);
 
         idle = new Animation();
-        idle.loadAnimationFromSheet("images/idle.png",9,1,60);
+        idle.loadAnimationFromSheet("images/idle.png",9,1,150);
 
         idle.play();
         
         // Initialise the player with an animation
-        player = new Sprite(landing);
+        player = new Sprite(idle);
         npc1 = new Sprite(idle);
         
         // Load a single cloud animation
@@ -175,7 +180,7 @@ public class Game extends GameCore
 
         // Apply offsets to player and draw 
         player.setOffsets(xo, yo);
-        player.draw(g);
+        player.drawTransformed(g);
 
         npc1.setOffsets(xo,yo);
         npc1.draw(g);
@@ -208,7 +213,7 @@ public class Game extends GameCore
 
     public void drawCollidedTiles(Graphics2D g, TileMap map, int xOffset, int yOffset)
     {
-		if (collidedTiles.size() > 0)
+		if (!collidedTiles.isEmpty())
 		{	
 			int tileWidth = map.getTileWidth();
 			int tileHeight = map.getTileHeight();
@@ -230,27 +235,47 @@ public class Game extends GameCore
     {
     	
         // Make adjustments to the speed of the sprite due to gravity
-        if(player.getVelocityY() != 0 || player.getVelocityX() != 0){
+
             player.setVelocityY(player.getVelocityY()+(gravity*elapsed));
-        }
+
         //player.setVelocityY(player.getVelocityY()+(gravity*elapsed));
     	    	
        	player.setAnimationSpeed(1.0f);
         npc1.setAnimationSpeed(1.0f);
        	
-       	if (flap) 
+       	if (jump && this.canJump)
        	{
-       		player.setAnimationSpeed(1.8f);
-       		player.setVelocityY(fly);
+       		//player.setAnimationSpeed(1.8f);
+       		player.setVelocityY(-0.1f);
+
+            //Jump animation pause need to unpause when hitting the ground.
+            player.pauseAnimation();
+            this.canJump = false;
        	}
        	
-       	if (moveRight) 
+       	if (moveRight)
        	{
+            if(this.canJump){
+                player.playAnimation();
+            }
+            player.setAnimation(run);
+            player.flip(false);
        		player.setVelocityX(moveSpeed);
        	}
+        else if (moveLeft)
+        {
+            if(this.canJump){
+                player.playAnimation();
+            }
+            player.setAnimation(run);
+            player.flip(true);
+            player.setVelocityX(-moveSpeed);
+
+        }
        	else
        	{
        		player.setVelocityX(0);
+            player.setAnimation(idle);
        	}
        		
        	
@@ -305,7 +330,7 @@ public class Game extends GameCore
         	s.setY(tmap.getPixelHeight() - s.getHeight() - (int)(difference)); 
         	
         	// and make them bounce
-        	s.setVelocityY(-s.getVelocityY()*0.75f);
+        	//s.setVelocityY(-s.getVelocityY()*0.75f);
         }
     }
     
@@ -323,8 +348,9 @@ public class Game extends GameCore
     	
 		switch (key)
 		{
-			case KeyEvent.VK_UP     : flap = true; break;
+			case KeyEvent.VK_UP     : jump = true; break;
 			case KeyEvent.VK_RIGHT  : moveRight = true; break;
+            case KeyEvent.VK_LEFT   : moveLeft = true; break;
 			case KeyEvent.VK_S 		: Sound s = new Sound("sounds/caw.wav"); 
 									  s.start();
 									  break;
@@ -395,8 +421,7 @@ public class Game extends GameCore
 
     }
 
-    public void handleCollision(Sprite s, Rectangle spriteRectangle,Rectangle tileRectangle){
-
+    public void handleCollision(Sprite s, Rectangle spriteRectangle, Rectangle tileRectangle) {
         int xOverlap = Math.min(
                 spriteRectangle.x + spriteRectangle.width - tileRectangle.x,
                 tileRectangle.x + tileRectangle.width - spriteRectangle.x
@@ -405,46 +430,54 @@ public class Game extends GameCore
                 spriteRectangle.y + spriteRectangle.height - tileRectangle.y,
                 tileRectangle.y + tileRectangle.height - spriteRectangle.y
         );
-
+        final int bounceVelocity = 5;
         if (xOverlap < yOverlap) {
-
+            // Horizontal collision
             if (spriteRectangle.x < tileRectangle.x) {
+                s.setX(tileRectangle.x - spriteRectangle.width - 1);
 
-                s.setX(tileRectangle.x - spriteRectangle.width);
+                s.setVelocityX(-5); // Only stop if moving right into the wall
+
 
             } else {
+                s.setX(tileRectangle.x + tileRectangle.width + 1);
 
-                s.setX(tileRectangle.x + tileRectangle.width);
+                s.setVelocityX(+5); // Only stop if moving left into the wall
+
+
             }
-
-            s.setVelocityX(0);
-
         } else {
-
+            // Vertical collision
             if (spriteRectangle.y < tileRectangle.y) {
-
                 s.setY(tileRectangle.y - spriteRectangle.height);
+                if (s.getVelocityY() > 0) {
+                    s.setVelocityY(0); // Falling down onto a tile
+                    this.canJump = true;
 
+                }
             } else {
-
                 s.setY(tileRectangle.y + tileRectangle.height);
+                if (s.getVelocityY() < 0) {
+                    s.setVelocityY(0); // Hitting head on underside of tile
 
+                }
             }
-
-            s.setVelocityY(0);
         }
     }
 
 
-	public void keyReleased(KeyEvent e) { 
+
+    public void keyReleased(KeyEvent e) {
 
 		int key = e.getKeyCode();
 
 		switch (key)
 		{
 			case KeyEvent.VK_ESCAPE : stop(); break;
-			case KeyEvent.VK_UP     : flap = false; break;
+			case KeyEvent.VK_UP     : jump = false; break;
 			case KeyEvent.VK_RIGHT  : moveRight = false; break;
+            case KeyEvent.VK_LEFT   : moveLeft = false; break;
+
 			default :  break;
 		}
 	}

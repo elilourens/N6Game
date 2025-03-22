@@ -43,6 +43,9 @@ public class Sprite {
     private int xoff=0;
     private int yoff=0;
 
+    //Set the way the sprite is facing;
+    private boolean flipped = false;
+
     /**
      *  Creates a new Sprite object with the specified Animation.
      *  
@@ -200,6 +203,15 @@ public class Sprite {
     public void shiftY(float shift)
     {
     	this.y += shift;
+    }
+
+    public void flip(boolean flipped){
+        this.flipped = flipped;
+        if(flipped){
+            this.xscale = -Math.abs((float)this.xscale);
+        } else {
+            this.xscale = Math.abs((float)this.xscale);
+        }
     }
     
     /**

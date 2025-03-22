@@ -221,8 +221,8 @@ public class Animation {
         int height = sheet.getHeight(null)/rows;
 
 
-        System.out.println("Sheet size: " + sheet.getWidth(null) + "x" + sheet.getHeight(null));
-        System.out.println("Calculated sprite size: " + width + "x" + height);
+        //System.out.println("Sheet size: " + sheet.getWidth(null) + "x" + sheet.getHeight(null));
+        //System.out.println("Calculated sprite size: " + width + "x" + height);
         // for each column in each row
         for(int i = 0; i < rows; i++)
         {
