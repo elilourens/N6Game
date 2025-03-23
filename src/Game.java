@@ -32,7 +32,7 @@ public class Game extends GameCore
 
 	// Game constants
 
-    float	gravity = 0.0001f;
+    float	gravity = 0.0002f;
 
     float	moveSpeed = 0.05f;
     
@@ -100,7 +100,7 @@ public class Game extends GameCore
         landing.loadAnimationFromSheet("images/landbird.png", 4, 1, 60);
 
         run = new Animation();
-        run.loadAnimationFromSheet("images/run.png",6,1,100);
+        run.loadAnimationFromSheet("images/run.png",6,1,85);
 
         idle = new Animation();
         idle.loadAnimationFromSheet("images/idle.png",9,1,150);
@@ -246,7 +246,7 @@ public class Game extends GameCore
        	if (jump && this.canJump)
        	{
        		//player.setAnimationSpeed(1.8f);
-       		player.setVelocityY(-0.1f);
+       		player.setVelocityY(-0.2f);
 
             //Jump animation pause need to unpause when hitting the ground.
             player.pauseAnimation();
