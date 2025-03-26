@@ -12,6 +12,8 @@ import java.awt.*;
 
 import game2D.*;
 
+//import static sun.jvm.hotspot.gc.shared.CollectedHeapName.EPSILON;
+
 // Game demonstrates how we can override the GameCore class
 // to create our own 'game'. We usually need to implement at
 // least 'draw' and 'update' (not including any local event handling)
@@ -34,7 +36,7 @@ public class Game extends GameCore
 
     float	gravity = 0.0002f;
 
-    float	moveSpeed = 0.05f;
+    float	moveSpeed = 0.04f;
     
     // Game state flags
     boolean jump = false;
@@ -213,17 +215,23 @@ public class Game extends GameCore
 
     public void drawCollidedTiles(Graphics2D g, TileMap map, int xOffset, int yOffset)
     {
-		if (!collidedTiles.isEmpty())
-		{	
-			int tileWidth = map.getTileWidth();
-			int tileHeight = map.getTileHeight();
-			
-			g.setColor(Color.blue);
-			for (Tile t : collidedTiles)
-			{
-				g.drawRect(t.getXC()+xOffset, t.getYC()+yOffset, tileWidth, tileHeight);
-			}
-		}
+        if (!collidedTiles.isEmpty())
+        {
+            int tileWidth = map.getTileWidth();
+            int tileHeight = map.getTileHeight();
+
+            g.setColor(Color.blue);
+
+            for (Tile t : collidedTiles)
+            {
+                // Convert tile coordinate to pixel position
+                int px = t.getXC() * tileWidth;
+                int py = t.getYC() * tileHeight;
+
+                // Then draw the rectangle using the pixel coordinate + camera offset
+                g.drawRect(px + xOffset, py + yOffset, tileWidth, tileHeight);
+            }
+        }
     }
 	
     /**
@@ -233,7 +241,7 @@ public class Game extends GameCore
      */    
     public void update(long elapsed)
     {
-    	
+        collidedTiles.clear();
         // Make adjustments to the speed of the sprite due to gravity
 
             player.setVelocityY(player.getVelocityY()+(gravity*elapsed));
@@ -246,7 +254,7 @@ public class Game extends GameCore
        	if (jump && this.canJump)
        	{
        		//player.setAnimationSpeed(1.8f);
-       		player.setVelocityY(-0.2f);
+       		player.setVelocityY(-0.1f);
 
             //Jump animation pause need to unpause when hitting the ground.
             player.pauseAnimation();
@@ -282,24 +290,37 @@ public class Game extends GameCore
                 
        	for (Sprite s: clouds)
        		s.update(elapsed);
-       	
+
+        //System.out.printf("Before Collisions -> X: %.2f, Y: %.2f | VelX: %.4f, VelY: %.4f\n",player.getX(), player.getY(), player.getVelocityX(), player.getVelocityY());
+
+
+        player.setY(player.getY() + player.getVelocityY() * elapsed);
+        checkTileCollisionVertical(player, tmap,elapsed);
+
+
+        player.setX(player.getX() + player.getVelocityX() * elapsed);
+        checkTileCollisionHorizontal(player, tmap,elapsed);
+
+
+
+
+
+        //System.out.printf("After Collisions  -> X: %.2f, Y: %.2f | VelX: %.4f, VelY: %.4f\n\n",player.getX(), player.getY(), player.getVelocityX(), player.getVelocityY());
+
+
         // Now update the sprites animation and position
         player.update(elapsed);
         npc1.update(elapsed);
 
 
-        if(player.getVelocityX() != 0 || player.getVelocityY() != 0){
-            // Then check for any collisions that may have occurred
-            checkTileCollision(player, tmap);
-            if(boundingBoxCollision(player,npc1)){
-                npc1.hide();
-            }
+
+        if(boundingBoxCollision(player,npc1)){
+            npc1.hide();
         }
 
 
 
-        //For loop with all sprite npcs to check if they have velocity.
-        //for()
+
 
 
 
@@ -382,88 +403,164 @@ public class Game extends GameCore
      * @param s			The Sprite to check collisions for
      * @param tmap		The tile map to check 
      */
-
-    public void checkTileCollision(Sprite s, TileMap tmap)
+    public void checkTileCollisionHorizontal(Sprite s, TileMap tmap,long elapsed)
     {
-        collidedTiles.clear();
+        // Amount we want to move this frame
+        float dx = s.getVelocityX() * elapsed;
+        if (dx == 0) return;  // No horizontal movement
 
-        Rectangle spriteRectangle = new Rectangle(
-                (int) s.getX(), (int) s.getY(), s.getWidth(),  s.getHeight()
-        );
+        // Proposed new X
+        float newX = s.getX() + dx;
 
-        int tileWidth = tmap.getTileWidth();
+        // Sprite bounding box in new horizontal position
+        float spriteLeft   = newX;
+        float spriteRight  = newX + s.getWidth() - 1;
+        float spriteTop    = s.getY();
+        float spriteBottom = s.getY() + s.getHeight() - 1;
+
+        int tileWidth  = tmap.getTileWidth();
         int tileHeight = tmap.getTileHeight();
 
-        int startX = Math.max(0, (int) (s.getX() / tileWidth));
-        int endX = Math.min(tmap.getMapWidth() - 1, (int) ((s.getX() + s.getWidth()) / tileWidth));
-        int startY = Math.max(0, (int) (s.getY() / tileHeight));
-        int endY = Math.min(tmap.getMapHeight() - 1, (int) ((s.getY() + s.getHeight()) / tileHeight));
+        if (dx < 0)
+        {
+            // Moving LEFT: check left edge
+            int leftTileX = (int)(spriteLeft / tileWidth);
 
-        for(int y = startY; y <= endY; y++){
-            for(int x = startX; x <= endX; x++){
-                Tile tile = tmap.getTile(x,y);
+            // Top & bottom tile row
+            int topTileY    = (int)(spriteTop    / tileHeight);
+            int bottomTileY = (int)(spriteBottom / tileHeight);
 
-                if(tile == null || tile.getCharacter() == '.'){
-                    continue;
+            for (int ty = topTileY; ty <= bottomTileY; ty++)
+            {
+                if (isSolidTile(tmap, leftTileX, ty))
+                {
+                    // collided: clamp sprite just to the right of that tile
+                    newX = (leftTileX + 1) * tileWidth;
+                    collidedTiles.add(new Tile(tmap.getTileChar(leftTileX, ty), leftTileX, ty));
+                    s.setVelocityX(0);
+                    break;
                 }
+            }
+        }
+        else if (dx > 0)
+        {
+            // Moving RIGHT: check right edge
+            int rightTileX = (int)(spriteRight / tileWidth);
 
-                Rectangle tileRectangle = new Rectangle(
-                        x * tileWidth, y * tileHeight, tileWidth, tileHeight
-                );
+            int topTileY    = (int)(spriteTop    / tileHeight);
+            int bottomTileY = (int)(spriteBottom / tileHeight);
 
-                if(spriteRectangle.intersects(tileRectangle)){
-                    collidedTiles.add(tile);
+            for (int ty = topTileY; ty <= bottomTileY; ty++)
+            {
+                if (isSolidTile(tmap, rightTileX, ty))
+                {
+                    // Collided: clamp so sprite is just to left of that tile
+                    newX = (rightTileX * tileWidth) - s.getWidth();
+                    s.setVelocityX(0);
 
-                    handleCollision(s,spriteRectangle,tileRectangle);
+                    collidedTiles.add(new Tile(tmap.getTileChar(rightTileX, ty), rightTileX, ty));
+                    break;
                 }
             }
         }
 
+        s.setX(newX);
     }
 
-    public void handleCollision(Sprite s, Rectangle spriteRectangle, Rectangle tileRectangle) {
-        int xOverlap = Math.min(
-                spriteRectangle.x + spriteRectangle.width - tileRectangle.x,
-                tileRectangle.x + tileRectangle.width - spriteRectangle.x
-        );
-        int yOverlap = Math.min(
-                spriteRectangle.y + spriteRectangle.height - tileRectangle.y,
-                tileRectangle.y + tileRectangle.height - spriteRectangle.y
-        );
-        final int bounceVelocity = 5;
-        if (xOverlap < yOverlap) {
-            // Horizontal collision
-            if (spriteRectangle.x < tileRectangle.x) {
-                s.setX(tileRectangle.x - spriteRectangle.width - 1);
-
-                s.setVelocityX(-5); // Only stop if moving right into the wall
 
 
-            } else {
-                s.setX(tileRectangle.x + tileRectangle.width + 1);
-
-                s.setVelocityX(+5); // Only stop if moving left into the wall
 
 
+
+
+
+    public void checkTileCollisionVertical(Sprite s, TileMap tmap,long elapsed)
+    {
+        // Amount we want to move this frame
+        float dy = s.getVelocityY() * elapsed;
+        if (dy == 0) return;  // No vertical movement, so nothing to check
+
+        // Proposed new Y position
+        float newY = s.getY() + dy;
+
+        // Current bounding box edges of sprite
+        float spriteLeft   = s.getX();
+        float spriteRight  = s.getX() + s.getWidth() - 1;
+        float spriteTop    = newY;
+        float spriteBottom = newY + s.getHeight() - 1;
+
+        // Convert all these edges to tile coordinates
+        int tileWidth  = tmap.getTileWidth();
+        int tileHeight = tmap.getTileHeight();
+
+        // We’ll check the left and right corners of the top/bottom
+        //   depending on the direction of movement
+        if (dy < 0)
+        {
+            // Moving UP: check top edge
+            int topTileY = (int)(spriteTop / tileHeight);
+
+            // Left & right tile column
+            int leftTileX  = (int)(spriteLeft  / tileWidth);
+            int rightTileX = (int)(spriteRight / tileWidth);
+
+            // Check each tile from leftTileX..rightTileX at row topTileY
+            for (int tx = leftTileX; tx <= rightTileX; tx++)
+            {
+                if (isSolidTile(tmap, tx, topTileY))
+                {
+                    // We collided: clamp the Y so the sprite is just below this tile
+                    newY = (topTileY + 1) * tileHeight;
+                    s.setVelocityY(0);
+                    collidedTiles.add(new Tile(tmap.getTileChar(tx, topTileY), tx, topTileY));
+
+                    break; // no need to keep checking
+                }
             }
-        } else {
-            // Vertical collision
-            if (spriteRectangle.y < tileRectangle.y) {
-                s.setY(tileRectangle.y - spriteRectangle.height);
-                if (s.getVelocityY() > 0) {
-                    s.setVelocityY(0); // Falling down onto a tile
+        }
+        else if (dy > 0)
+        {
+            // Moving DOWN: check bottom edge
+            int bottomTileY = (int)(spriteBottom / tileHeight);
+
+            // Left & right tile column
+            int leftTileX  = (int)(spriteLeft  / tileWidth);
+            int rightTileX = (int)(spriteRight / tileWidth);
+
+            // Check each tile from leftTileX..rightTileX at row bottomTileY
+            for (int tx = leftTileX; tx <= rightTileX; tx++)
+            {
+                if (isSolidTile(tmap, tx, bottomTileY))
+                {
+                    // Collided: clamp so the sprite is just on top of the tile
+                    newY = bottomTileY * tileHeight - (s.getHeight());
+                    s.setVelocityY(0);
+                    collidedTiles.add(new Tile(tmap.getTileChar(tx, bottomTileY), tx, bottomTileY));
+                    // We’ve landed on something, so we can jump again
                     this.canJump = true;
 
-                }
-            } else {
-                s.setY(tileRectangle.y + tileRectangle.height);
-                if (s.getVelocityY() < 0) {
-                    s.setVelocityY(0); // Hitting head on underside of tile
-
+                    break; // no need to keep checking
                 }
             }
         }
+
+        // Finally, apply that corrected newY
+        s.setY(newY);
     }
+
+
+    private boolean isSolidTile(TileMap tmap, int tileX, int tileY)
+    {
+        // If tileX or tileY is out-of-bounds, treat it as solid, or adjust to your liking
+        if (tileX < 0 || tileY < 0 || tileX >= tmap.getMapWidth() || tileY >= tmap.getMapHeight()) {
+            return true;  // out of bounds => treat as solid
+        }
+
+        char tileChar = tmap.getTileChar(tileX, tileY);
+        // Suppose '.' is empty, everything else (like '#', '?', etc.) is solid:
+        return (tileChar != '.');
+    }
+
 
 
 

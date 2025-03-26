@@ -244,27 +244,13 @@ public class Animation {
                 count++;
             }
         }
-        displayImages(split);
+
         // return array
         return split;
 
     }
 
-    public void displayImages(Image[] images) {
-        JFrame frame = new JFrame("Sprite Sheet Frames");
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setLayout(new GridLayout(0, 5));
-
-        for (int i = 0 ; i < images.length; i++) {
-            JLabel label = new JLabel(new ImageIcon(images[i]));
-            JLabel temp = new JLabel("" + i);
-            frame.add(temp);
-            frame.add(label);
-        }
-
-        frame.pack();
-        frame.setVisible(true);
-    }
+    
 
     /**
      * Pause the animation.
