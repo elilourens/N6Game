@@ -13,7 +13,11 @@ import java.awt.geom.*;
 public class Sprite {
 
 	// The current Animation to use for this sprite
-    private Animation anim;		
+    private Animation anim;
+
+    private Integer fixedWidth = null;
+    private Integer fixedHeight = null;
+
 
     // Position (pixels)
     private float x;
@@ -218,18 +222,18 @@ public class Sprite {
         Gets this Sprite's width, based on the size of the
         current image.
     */
-    public int getWidth() 
-    {
-        return (int)(anim.getImage().getWidth(null)*Math.abs(xscale));
+    public int getWidth() {
+        if (fixedWidth != null) return fixedWidth;
+        return (int)(anim.getImage().getWidth(null) * Math.abs(xscale));
     }
 
     /**
         Gets this Sprite's height, based on the size of the
         current image.
     */
-    public int getHeight() 
-    {
-        return (int)(anim.getImage().getHeight(null)*Math.abs(yscale));
+    public int getHeight() {
+        if (fixedHeight != null) return fixedHeight;
+        return (int)(anim.getImage().getHeight(null) * Math.abs(yscale));
     }
 
     /**
@@ -266,6 +270,11 @@ public class Sprite {
     public void setVelocityX(float dx) 
     {
         this.dx = dx;
+    }
+
+    public void setFixedSize(int width, int height) {
+        this.fixedWidth = width;
+        this.fixedHeight = height;
     }
 
     /**

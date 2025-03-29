@@ -4,10 +4,6 @@ import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 
 import java.awt.Rectangle;
-import java.util.ArrayList;
-import java.util.List;
-
-import java.awt.*;
 
 
 import game2D.*;
@@ -40,10 +36,13 @@ public class Game extends GameCore
     
     // Game state flags
     boolean jump = false;
-    boolean canJump = false;
+    boolean playerGrounded = false;
     boolean moveRight = false;
     boolean moveLeft = false;
     boolean debug = true;		
+
+    //npc1
+    boolean npcMovingRight = true;
 
     // Game resources
     Animation landing;
@@ -145,11 +144,18 @@ public class Game extends GameCore
 
         player.setPosition(200,200);
         player.setVelocity(0,0);
+        player.setFixedSize(38, 30); // example size — pick one that fits ALL animations
+
         player.show();
 
-        npc1.setPosition(280,280);
+        npc1.setPosition(340,280);
         npc1.setVelocity(0,0);
         npc1.show();
+        npc1.setFixedSize(38, 30);
+        npc1.setVelocityX(0.02f);  // small walking speed
+        npc1.setAnimation(run);    // walking animation
+        npc1.flip(false);   // initially facing right
+
     }
     
     /**
@@ -238,97 +244,125 @@ public class Game extends GameCore
      * Update any sprites and check for collisions
      * 
      * @param elapsed The elapsed time between this call and the previous call of elapsed
-     */    
+     */
     public void update(long elapsed)
     {
+        // Always clear from previous frame
         collidedTiles.clear();
-        // Make adjustments to the speed of the sprite due to gravity
 
-            player.setVelocityY(player.getVelocityY()+(gravity*elapsed));
+        // -----------------------------------------------------------
+        // 1) NPC: simple gravity & movement (no skipping vertical collisions here)
+        // -----------------------------------------------------------
+        npc1.setVelocityY(npc1.getVelocityY() + (gravity * elapsed));
+        npc1.setY(npc1.getY() + npc1.getVelocityY() * elapsed);
+        checkTileCollisionVertical(npc1, tmap, elapsed);
 
-        //player.setVelocityY(player.getVelocityY()+(gravity*elapsed));
-    	    	
-       	player.setAnimationSpeed(1.0f);
-        npc1.setAnimationSpeed(1.0f);
-       	
-       	if (jump && this.canJump)
-       	{
-       		//player.setAnimationSpeed(1.8f);
-       		player.setVelocityY(-0.1f);
+        npc1.setX(npc1.getX() + npc1.getVelocityX() * elapsed);
+        checkTileCollisionHorizontal(npc1, tmap, elapsed);
 
-            //Jump animation pause need to unpause when hitting the ground.
-            player.pauseAnimation();
-            this.canJump = false;
-       	}
-       	
-       	if (moveRight)
-       	{
-            if(this.canJump){
+        // -----------------------------------------------------------
+        // 2) Handle jumping (only if we’re currently grounded)
+        // -----------------------------------------------------------
+        if (jump && playerGrounded) {
+            player.setVelocityY(-0.1f);
+            player.pauseAnimation();     // Optional: pause animation during jump
+            playerGrounded = false;      // No longer on the ground once we jump
+        }
+
+        // -----------------------------------------------------------
+        // 3) Horizontal movement & animation for player
+        // -----------------------------------------------------------
+        if (moveRight) {
+            if (playerGrounded) {
                 player.playAnimation();
             }
             player.setAnimation(run);
             player.flip(false);
-       		player.setVelocityX(moveSpeed);
-       	}
-        else if (moveLeft)
-        {
-            if(this.canJump){
+            player.setVelocityX(moveSpeed);
+
+        } else if (moveLeft) {
+            if (playerGrounded) {
                 player.playAnimation();
             }
             player.setAnimation(run);
             player.flip(true);
             player.setVelocityX(-moveSpeed);
 
-        }
-       	else
-       	{
-       		player.setVelocityX(0);
+        } else {
+            // Not pressing left or right
+            player.setVelocityX(0);
             player.setAnimation(idle);
-       	}
-       		
-       	
-                
-       	for (Sprite s: clouds)
-       		s.update(elapsed);
+            player.playAnimation();
+        }
 
-        //System.out.printf("Before Collisions -> X: %.2f, Y: %.2f | VelX: %.4f, VelY: %.4f\n",player.getX(), player.getY(), player.getVelocityX(), player.getVelocityY());
-
-
-        player.setY(player.getY() + player.getVelocityY() * elapsed);
-        checkTileCollisionVertical(player, tmap,elapsed);
-
-
+        // Move player horizontally and check for collisions
         player.setX(player.getX() + player.getVelocityX() * elapsed);
-        checkTileCollisionHorizontal(player, tmap,elapsed);
+        checkTileCollisionHorizontal(player, tmap, elapsed);
 
+        // -----------------------------------------------------------
+        // 4) If grounded, check whether we are still on a valid tile
+        //    (i.e. not walking off the edge). If not, become ungrounded.
+        // -----------------------------------------------------------
+        if (playerGrounded && noTileUnderPlayer(player, tmap)) {
+            playerGrounded = false;
+        }
 
+        // -----------------------------------------------------------
+        // 5) Vertical movement for player only if not grounded
+        // -----------------------------------------------------------
+        if (!playerGrounded) {
+            // Apply gravity
+            player.setVelocityY(player.getVelocityY() + (gravity * elapsed));
 
+            // Move and do vertical collision
+            player.setY(player.getY() + player.getVelocityY() * elapsed);
+            checkTileCollisionVertical(player, tmap, elapsed);
+        }
+        else {
+            // If we’re on the ground, ensure we’re not accumulating downward velocity
+            player.setVelocityY(0);
+        }
 
+        // If velocity is positive (moving down), definitely not on the ground
+        if (player.getVelocityY() > 0) {
+            playerGrounded = false;
+        }
 
-        //System.out.printf("After Collisions  -> X: %.2f, Y: %.2f | VelX: %.4f, VelY: %.4f\n\n",player.getX(), player.getY(), player.getVelocityX(), player.getVelocityY());
-
-
-        // Now update the sprites animation and position
+        // -----------------------------------------------------------
+        // 6) Update animations, check collisions, etc.
+        // -----------------------------------------------------------
         player.update(elapsed);
         npc1.update(elapsed);
 
-
-
-        if(boundingBoxCollision(player,npc1)){
-            npc1.hide();
+        if (boundingBoxCollision(player, npc1)) {
+            npc1.hide();  // Example collision response
         }
 
-
-
-
-
-
-
+        // Optional: keep player from going off bottom of map, etc.
         handleScreenEdge(player, tmap, elapsed);
-
     }
-    
-    
+
+
+    boolean noTileUnderPlayer(Sprite s, TileMap tmap) {
+        // Check the bottom center of the player, for instance
+        float bottom = s.getY() + s.getHeight();
+        float midX   = s.getX() + s.getWidth() / 2;
+
+        int tileX = (int)(midX / tmap.getTileWidth());
+        int tileY = (int)(bottom / tmap.getTileHeight());
+
+        // If out of bounds, count it as "no tile."
+        if (tileX < 0 || tileY < 0 ||
+                tileX >= tmap.getMapWidth() || tileY >= tmap.getMapHeight()) {
+            return true;
+        }
+
+        // Or: return !isSolidTile(tileX, tileY)
+        char tile = tmap.getTileChar(tileX, tileY);
+        return (tile == '.');
+    }
+
+
     /**
      * Checks and handles collisions with the edge of the screen. You should generally
      * use tile map collisions to prevent the player leaving the game area. This method
@@ -423,11 +457,8 @@ public class Game extends GameCore
 
         if (dx < 0)
         {
-            // Moving LEFT: check left edge
             int leftTileX = (int)(spriteLeft / tileWidth);
-
-            // Top & bottom tile row
-            int topTileY    = (int)(spriteTop    / tileHeight);
+            int topTileY = (int)(spriteTop / tileHeight);
             int bottomTileY = (int)(spriteBottom / tileHeight);
 
             for (int ty = topTileY; ty <= bottomTileY; ty++)
@@ -442,12 +473,11 @@ public class Game extends GameCore
                 }
             }
         }
+
         else if (dx > 0)
         {
-            // Moving RIGHT: check right edge
             int rightTileX = (int)(spriteRight / tileWidth);
-
-            int topTileY    = (int)(spriteTop    / tileHeight);
+            int topTileY = (int)(spriteTop / tileHeight);
             int bottomTileY = (int)(spriteBottom / tileHeight);
 
             for (int ty = topTileY; ty <= bottomTileY; ty++)
@@ -456,13 +486,13 @@ public class Game extends GameCore
                 {
                     // Collided: clamp so sprite is just to left of that tile
                     newX = (rightTileX * tileWidth) - s.getWidth();
-                    s.setVelocityX(0);
-
                     collidedTiles.add(new Tile(tmap.getTileChar(rightTileX, ty), rightTileX, ty));
+                    s.setVelocityX(0);
                     break;
                 }
             }
         }
+
 
         s.setX(newX);
     }
@@ -537,8 +567,9 @@ public class Game extends GameCore
                     s.setVelocityY(0);
                     collidedTiles.add(new Tile(tmap.getTileChar(tx, bottomTileY), tx, bottomTileY));
                     // We’ve landed on something, so we can jump again
-                    this.canJump = true;
-
+                    if(s.equals(player)){
+                        this.playerGrounded = true;
+                    }
                     break; // no need to keep checking
                 }
             }
