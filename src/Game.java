@@ -57,7 +57,8 @@ public class Game extends GameCore
     ArrayList<Sprite> npcs = new ArrayList<>();
 
     TileMap tmap = new TileMap();	// Our tile map, note that we load it in init()
-    
+    TileMap tmapp2 = new TileMap();
+
     long total;         			// The score will be the total time elapsed since a crash
 
 
@@ -90,6 +91,7 @@ public class Game extends GameCore
 
         // Load the tile map and print it out so we can check it is valid
         tmap.loadMap("maps", "map.txt");
+        //tmap2.loadMap("maps","map2.txt");
         
         setSize(tmap.getPixelWidth()/2, tmap.getPixelHeight());
         setVisible(true);
@@ -142,7 +144,7 @@ public class Game extends GameCore
     {
     	total = 0;
 
-        player.setPosition(200,200);
+        player.setPosition(32,750);
         player.setVelocity(0,0);
         player.setFixedSize(38, 30); // example size — pick one that fits ALL animations
 
@@ -219,8 +221,7 @@ public class Game extends GameCore
 
     }
 
-    public void drawCollidedTiles(Graphics2D g, TileMap map, int xOffset, int yOffset)
-    {
+    public void drawCollidedTiles(Graphics2D g, TileMap map, int xOffset, int yOffset) {
         if (!collidedTiles.isEmpty())
         {
             int tileWidth = map.getTileWidth();
@@ -245,8 +246,7 @@ public class Game extends GameCore
      * 
      * @param elapsed The elapsed time between this call and the previous call of elapsed
      */
-    public void update(long elapsed)
-    {
+    public void update(long elapsed) {
         // Always clear from previous frame
         collidedTiles.clear();
 
@@ -437,8 +437,7 @@ public class Game extends GameCore
      * @param s			The Sprite to check collisions for
      * @param tmap		The tile map to check 
      */
-    public void checkTileCollisionHorizontal(Sprite s, TileMap tmap,long elapsed)
-    {
+    public void checkTileCollisionHorizontal(Sprite s, TileMap tmap,long elapsed) {
         // Amount we want to move this frame
         float dx = s.getVelocityX() * elapsed;
         if (dx == 0) return;  // No horizontal movement
@@ -455,7 +454,7 @@ public class Game extends GameCore
         int tileWidth  = tmap.getTileWidth();
         int tileHeight = tmap.getTileHeight();
 
-        if (dx < 0)
+        if (dx < 0) //moving left?
         {
             int leftTileX = (int)(spriteLeft / tileWidth);
             int topTileY = (int)(spriteTop / tileHeight);
@@ -474,7 +473,7 @@ public class Game extends GameCore
             }
         }
 
-        else if (dx > 0)
+        else if (dx > 0) //moving right?
         {
             int rightTileX = (int)(spriteRight / tileWidth);
             int topTileY = (int)(spriteTop / tileHeight);
@@ -504,8 +503,7 @@ public class Game extends GameCore
 
 
 
-    public void checkTileCollisionVertical(Sprite s, TileMap tmap,long elapsed)
-    {
+    public void checkTileCollisionVertical(Sprite s, TileMap tmap,long elapsed) {
         // Amount we want to move this frame
         float dy = s.getVelocityY() * elapsed;
         if (dy == 0) return;  // No vertical movement, so nothing to check
@@ -525,7 +523,7 @@ public class Game extends GameCore
 
         // We’ll check the left and right corners of the top/bottom
         //   depending on the direction of movement
-        if (dy < 0)
+        if (dy < 0) //moving left?
         {
             // Moving UP: check top edge
             int topTileY = (int)(spriteTop / tileHeight);
@@ -548,7 +546,7 @@ public class Game extends GameCore
                 }
             }
         }
-        else if (dy > 0)
+        else if (dy > 0) //moving right?
         {
             // Moving DOWN: check bottom edge
             int bottomTileY = (int)(spriteBottom / tileHeight);
@@ -580,8 +578,7 @@ public class Game extends GameCore
     }
 
 
-    private boolean isSolidTile(TileMap tmap, int tileX, int tileY)
-    {
+    private boolean isSolidTile(TileMap tmap, int tileX, int tileY) {
         // If tileX or tileY is out-of-bounds, treat it as solid, or adjust to your liking
         if (tileX < 0 || tileY < 0 || tileX >= tmap.getMapWidth() || tileY >= tmap.getMapHeight()) {
             return true;  // out of bounds => treat as solid
@@ -589,7 +586,31 @@ public class Game extends GameCore
 
         char tileChar = tmap.getTileChar(tileX, tileY);
         // Suppose '.' is empty, everything else (like '#', '?', etc.) is solid:
-        return (tileChar != '.');
+        return (tileChar != '.' && tileChar != 'x');
+    }
+
+    public void tryOpenDoor() {
+        int tileWidth = tmap.getTileWidth();
+        int tileHeight = tmap.getTileHeight();
+
+        int leftTile   = (int)(player.getX() / tileWidth);
+        int rightTile  = (int)((player.getX() + player.getWidth()) / tileWidth);
+        int topTile    = (int)(player.getY() / tileHeight);
+        int bottomTile = (int)((player.getY() + player.getHeight()) / tileHeight);
+
+        for (int tx = leftTile; tx <= rightTile; tx++) {
+            for (int ty = topTile; ty <= bottomTile; ty++) {
+                // Bounds check
+                if (tx >= 0 && ty >= 0 && tx < tmap.getMapWidth() && ty < tmap.getMapHeight()) {
+                    char tileChar = tmap.getTileChar(tx, ty);
+                    if (tileChar == 'x') {
+
+                        System.out.printf("Opened door at (%d,%d)%n", tx, ty);
+                        return;
+                    }
+                }
+            }
+        }
     }
 
 
@@ -605,6 +626,7 @@ public class Game extends GameCore
 			case KeyEvent.VK_UP     : jump = false; break;
 			case KeyEvent.VK_RIGHT  : moveRight = false; break;
             case KeyEvent.VK_LEFT   : moveLeft = false; break;
+            case KeyEvent.VK_E    : tryOpenDoor(); break;
 
 			default :  break;
 		}

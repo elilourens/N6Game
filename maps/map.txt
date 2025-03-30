@@ -5,24 +5,29 @@
 // # character. The dot character always defaults to a blank space 
 // Note that the referenced files should be in the same directory as the
 // tile map.
-#p=pipe.png
-#t=pipetop.png
-#b=pipebot.png
-#m=mossytop.png
+#m=mossylightwall.png
+#n=mossylightwall2.png
+#k=mossylightwall3.png
+#l=lightwall.png
+#d=darkwall.png
+#q=pillartop.png
+#a=pillarmid.png
+#z=pillarbottom.png
+#x=door.png
 // The actual tile map is preceded by the #map line
 #map
-p....p.......p.......p.......p.......p.......p.......p.......p..
-p....b.......b.......b.......p.......b.......p.......p.......b..
-b....p.......p.......p....bbbb.......p.......p.......b..........
-.....b.......b.......p...............p.......b.......p..........
-t....................b...............b...............b..........
-t....................p.......t.......p.......................t..
-t....................b.......p.......p.......t...............p..
-t............................p.......b.......p...............p..
-t...............t........tt..t...............p.......t.......t..
-t........t.......t...........p...............t.......p.......p..
-t........t...........tttttt..p.......t.......p.......p.......p..
-tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt
+l..lllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
+l..lllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
+l..llllllllllllllllllllllllllllllllllllllllllllllllll.........ll
+l..llllllllllllllllllllllllllllllllllllllllllllllllll.........ll
+l....................l.............................ll.........ll
+l....................l.............................ll.........ll
+l....................l..............x..............ll.........ll
+l................................lknmkmn...........ll...lll...ll
+l........................nllkl...qlqlqlq...........aa.........ll
+l........m...........m...........alalala...........aa.........ll
+l........l...........l...........zlzlzlz..........llllllllllllll
+llknmllnklllllllllnmlllllkllllkllllllllllllkmnllllllllllllllllll
 
 
 
