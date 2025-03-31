@@ -48,6 +48,7 @@ public class Game extends GameCore
     Animation landing;
     Animation idle;
     Animation run;
+    Animation damaged;
     
     Sprite	player = null;
     Sprite npc1 = null;
@@ -62,6 +63,10 @@ public class Game extends GameCore
 
 
     long total;         			// The score will be the total time elapsed since a crash
+    int playerHealth = 3;
+    long damageCooldown = 1000;
+    long lastDamageTaken = 0;
+    boolean isPlayerInvincible = false;
 
 
     /**
@@ -111,6 +116,9 @@ public class Game extends GameCore
         idle = new Animation();
         idle.loadAnimationFromSheet("images/idle.png",9,1,150);
 
+        damaged = new Animation();
+        damaged.loadAnimationFromSheet("images/damaged.png",5,1,100);
+
         idle.play();
         
         // Initialise the player with an animation
@@ -150,7 +158,7 @@ public class Game extends GameCore
         player.setPosition(32,750);
         player.setVelocity(0,0);
         player.setFixedSize(38, 30); // example size — pick one that fits ALL animations
-
+        playerHealth = 3;
         player.show();
 
         npc1.setPosition(340,280);
@@ -196,13 +204,17 @@ public class Game extends GameCore
         player.drawTransformed(g);
 
         npc1.setOffsets(xo,yo);
-        npc1.draw(g);
+        npc1.drawTransformed(g);
 
         
         // Show score and status information
         String msg = String.format("Score: %d", total/100);
         g.setColor(Color.darkGray);
         g.drawString(msg, getWidth() - 100, 50);
+
+        g.setColor(Color.RED);
+        String healthString = "Health: " + playerHealth;
+        g.drawString(healthString, 20, 50);
         
         if (debug)
         {
@@ -275,27 +287,28 @@ public class Game extends GameCore
         // -----------------------------------------------------------
         // 3) Horizontal movement & animation for player
         // -----------------------------------------------------------
-        if (moveRight) {
-            if (playerGrounded) {
-                player.playAnimation();
-            }
-            player.setAnimation(run);
-            player.flip(false);
-            player.setVelocityX(moveSpeed);
-
-        } else if (moveLeft) {
-            if (playerGrounded) {
-                player.playAnimation();
-            }
-            player.setAnimation(run);
-            player.flip(true);
-            player.setVelocityX(-moveSpeed);
-
-        } else {
-            // Not pressing left or right
-            player.setVelocityX(0);
-            player.setAnimation(idle);
+        boolean recentlyDamaged = System.currentTimeMillis() - lastDamageTaken < 500;
+        if (recentlyDamaged) {
+            player.setAnimation(damaged);
             player.playAnimation();
+        } else {
+            if (moveRight) {
+                if (playerGrounded) player.playAnimation();
+                player.setAnimation(run);
+                player.flip(false);
+                player.setVelocityX(moveSpeed);
+
+            } else if (moveLeft) {
+                if (playerGrounded) player.playAnimation();
+                player.setAnimation(run);
+                player.flip(true);
+                player.setVelocityX(-moveSpeed);
+
+            } else {
+                player.setVelocityX(0);
+                player.setAnimation(idle);
+                player.playAnimation();
+            }
         }
 
         // Move player horizontally and check for collisions
@@ -338,7 +351,16 @@ public class Game extends GameCore
         npc1.update(elapsed);
 
         if (boundingBoxCollision(player, npc1)) {
-            npc1.hide();  // Example collision response
+            long currentTime = System.currentTimeMillis();
+            if(currentTime - lastDamageTaken > damageCooldown){
+                playerHealth--;
+                lastDamageTaken = currentTime;
+
+                if(playerHealth < 1){
+                    init();
+                }
+            }
+
         }
 
         // Optional: keep player from going off bottom of map, etc.
@@ -441,14 +463,11 @@ public class Game extends GameCore
      *
      */
     public void checkTileCollisionHorizontal(Sprite s,long elapsed) {
-        // Amount we want to move this frame
         float dx = s.getVelocityX() * elapsed;
-        if (dx == 0) return;  // No horizontal movement
+        if (dx == 0) return;
 
-        // Proposed new X
         float newX = s.getX() + dx;
 
-        // Sprite bounding box in new horizontal position
         float spriteLeft   = newX;
         float spriteRight  = newX + s.getWidth() - 1;
         float spriteTop    = s.getY();
@@ -457,47 +476,51 @@ public class Game extends GameCore
         int tileWidth  = currentMap.getTileWidth();
         int tileHeight = currentMap.getTileHeight();
 
-        if (dx < 0) //moving left?
-        {
+        if (dx < 0) {
             int leftTileX = (int)(spriteLeft / tileWidth);
             int topTileY = (int)(spriteTop / tileHeight);
             int bottomTileY = (int)(spriteBottom / tileHeight);
 
-            for (int ty = topTileY; ty <= bottomTileY; ty++)
-            {
-                if (isSolidTile(currentMap, leftTileX, ty))
-                {
-                    // collided: clamp sprite just to the right of that tile
+            for (int ty = topTileY; ty <= bottomTileY; ty++) {
+                if (isSolidTile(currentMap, leftTileX, ty)) {
                     newX = (leftTileX + 1) * tileWidth;
                     collidedTiles.add(new Tile(currentMap.getTileChar(leftTileX, ty), leftTileX, ty));
                     s.setVelocityX(0);
+
+                    // NPC turn-around logic
+                    if (s == npc1) {
+                        npc1.setVelocityX(0.02f);  // turn right
+                        newX += 20;
+                        npc1.flip(false);
+                    }
                     break;
                 }
             }
-        }
-
-        else if (dx > 0) //moving right?
-        {
+        } else if (dx > 0) {
             int rightTileX = (int)(spriteRight / tileWidth);
             int topTileY = (int)(spriteTop / tileHeight);
             int bottomTileY = (int)(spriteBottom / tileHeight);
 
-            for (int ty = topTileY; ty <= bottomTileY; ty++)
-            {
-                if (isSolidTile(currentMap, rightTileX, ty))
-                {
-                    // Collided: clamp so sprite is just to left of that tile
+            for (int ty = topTileY; ty <= bottomTileY; ty++) {
+                if (isSolidTile(currentMap, rightTileX, ty)) {
                     newX = (rightTileX * tileWidth) - s.getWidth();
                     collidedTiles.add(new Tile(currentMap.getTileChar(rightTileX, ty), rightTileX, ty));
                     s.setVelocityX(0);
+
+                    // NPC turn-around logic
+                    if (s == npc1) {
+                        npc1.setVelocityX(-0.02f);  // turn left
+                        newX += -20;
+                        npc1.flip(true);
+                    }
                     break;
                 }
             }
         }
 
-
         s.setX(newX);
     }
+
 
 
 
@@ -588,7 +611,7 @@ public class Game extends GameCore
         }
 
         char tileChar = currentMap.getTileChar(tileX, tileY);
-        // Suppose '.' is empty, everything else (like '#', '?', etc.) is solid:
+
         return (tileChar != '.' && tileChar != 'x');
     }
 
