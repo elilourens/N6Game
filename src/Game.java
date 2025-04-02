@@ -4,6 +4,7 @@ import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 
 import java.awt.Rectangle;
+import java.util.HashMap;
 
 
 import game2D.*;
@@ -45,23 +46,27 @@ public class Game extends GameCore
 
 
     // Game resources
-    Animation landing;
+
     Animation idle;
     Animation run;
     Animation damaged;
     Animation blueRun;
 
     ArrayList<Image> parallaxLayers = new ArrayList<>();
+    private float bg1ScrollOffset = 0f;
+
 
 
     Sprite	player = null;
     Sprite npc1 = null;
 
 
-    ArrayList<Sprite> 	clouds = new ArrayList<Sprite>();
+
     ArrayList<Tile>		collidedTiles = new ArrayList<Tile>();
 
-    ArrayList<Sprite> npcs = new ArrayList<>();
+    ArrayList<Sprite> characterSprites = new ArrayList<>();
+    HashMap<Sprite, Boolean> groundedStates = new HashMap<>();
+
 
     TileMap tmap = new TileMap();	// Our tile map, note that we load it in init()
     TileMap tmap2 = new TileMap();
@@ -101,7 +106,7 @@ public class Game extends GameCore
      */
     public void init()
     {         
-        Sprite s;	// Temporary reference to a sprite
+
 
         // Load the tile map and print it out so we can check it is valid
         tmap.loadMap("maps", "map.txt");
@@ -113,7 +118,6 @@ public class Game extends GameCore
 
         // Create a set of background sprites that we can 
         // rearrange to give the illusion of motion
-
         for (int i = 7; i >= 1; i--) {
             Image img = loadImage("images/bg" + i + ".png");
             parallaxLayers.add(img);
@@ -136,22 +140,10 @@ public class Game extends GameCore
         // Initialise the player with an animation
         player = new Sprite(idle);
         npc1 = new Sprite(idle);
+
         
-        // Load a single cloud animation
-        Animation ca = new Animation();
-        ca.addFrame(loadImage("images/cloud.png"), 1000);
-        
-        // Create 3 clouds at random positions off the screen
-        // to the right
-        for (int c=0; c<3; c++)
-        {
-        	s = new Sprite(ca);
-        	s.setX(screenWidth + (int)(Math.random()*200.0f));
-        	s.setY(30 + (int)(Math.random()*150.0f));
-        	s.setVelocityX(-0.02f);
-        	s.show();
-        	clouds.add(s);
-        }
+
+
 
         initialiseGame();
       		
@@ -173,13 +165,19 @@ public class Game extends GameCore
         playerHealth = 3;
         player.show();
 
-        npc1.setPosition(340,280);
+        npc1.setPosition(380,350);
         npc1.setVelocity(0,0);
         npc1.show();
         npc1.setFixedSize(26, 30);
         npc1.setVelocityX(0.02f);  // small walking speed
         npc1.setAnimation(blueRun);    // walking animation
         npc1.flip(false);   // initially facing right
+
+
+        characterSprites.add(npc1);
+
+        groundedStates.put(npc1, false);
+
 
     }
     
@@ -195,47 +193,46 @@ public class Game extends GameCore
     	// First work out how much we need to shift the view in order to
     	// see where the player is. To do this, we adjust the offset so that
         // it is relative to the player's position along with a shift
-        int xo = -(int)player.getX() + 200;
+        int xo = -(int)player.getX() + 300;
         int yo = -(int)player.getY() + 220;
 
         g.setColor(Color.white);
         g.fillRect(0, 0, getWidth(), getHeight());
 
-        for (int i = 0; i < parallaxLayers.size(); i++) {
+        Image baseLayer = parallaxLayers.get(0);
+        int baseW = baseLayer.getWidth(null);
+        int baseH = baseLayer.getHeight(null);
+
+        for (int x = 0; x < getWidth(); x += baseW) {
+            for (int y = 0; y < getHeight(); y += baseH) {
+                g.drawImage(baseLayer, x, y, null);
+            }
+        }
+
+        for (int i = 1; i < parallaxLayers.size(); i++) {
             Image layer = parallaxLayers.get(i);
             int imgW = layer.getWidth(null);
-            int imgH = layer.getHeight(null);
 
-            // If it's the blue base background (bg7), tile it to fill the entire screen
-            if (i == 0) {
-                for (int x = 0; x < getWidth(); x += imgW) {
-                    for (int y = 0; y < getHeight(); y += imgH) {
-                        g.drawImage(layer, x, y, null);
-                    }
-                }
-            } else {
-                float parallaxFactor = 0.2f + (i * 0.1f);
 
-                int layerX = (int)(xo * parallaxFactor) % imgW;
-                int layerY = 170; // Fixed vertical offset
+            float parallaxFactor = 0.2f + (i * 0.1f);
+            int layerY = 170;
 
-                if (layerX > 0) layerX -= imgW;
+            // Add auto-scrolling to bg1 (index 1 ONLY).
+            int layerX = (int)((xo * parallaxFactor + (i == 1 ? bg1ScrollOffset : 0)) % imgW);
+            if (layerX > 0) layerX -= imgW;
 
-                for (int x = layerX; x < getWidth(); x += imgW) {
-                    g.drawImage(layer, x, layerY, null);
-                }
+            for (int x = layerX; x < getWidth(); x += imgW) {
+                g.drawImage(layer, x, layerY, null);
             }
         }
 
 
 
 
-        // Apply offsets to sprites then draw them
-        for (Sprite s: clouds)
-        {
-        	s.setOffsets(xo,yo);
-        	s.draw(g);
-        }
+
+
+
+
 
         // Apply offsets to tile map and draw  it
         currentMap.draw(g,xo,yo);
@@ -296,6 +293,62 @@ public class Game extends GameCore
             }
         }
     }
+
+    public void updateNpcs(ArrayList<Sprite> characterSprites, long elapsed){
+        for (Sprite character : characterSprites) {
+            if (character == null || character == player) continue;
+
+            float npcX = character.getX();
+            float playerX = player.getX();
+            float distance = Math.abs(npcX - playerX);
+            boolean grounded = groundedStates.getOrDefault(character, false);
+
+            // --- Skip if too far ---
+            if (distance > 201) {
+                character.setVelocityX(0);
+                character.pauseAnimation();
+                continue;
+            }
+
+            // --- Chase Player ---
+            if (distance > 5) {
+                float direction = Math.signum(playerX - npcX);
+                character.setVelocityX(0.01f * direction);
+                character.flip(direction < 0);
+                character.playAnimation();
+            } else {
+                character.setVelocityX(0);
+            }
+
+            // --- Move Horizontally + Collide ---
+            character.setX(character.getX() + character.getVelocityX() * elapsed);
+            checkTileCollisionHorizontal(character, elapsed);
+
+            // --- Wall Detection + Jump if grounded ---
+            float offset = character.getVelocityX() > 0 ? character.getWidth() : -1;
+            int tileAheadX = (int)((character.getX() + offset) / currentMap.getTileWidth());
+            int tileMidY = (int)((character.getY() + character.getHeight() / 2) / currentMap.getTileHeight());
+
+            if (isSolidTile(currentMap, tileAheadX, tileMidY) && grounded) {
+                character.setVelocityY(-0.07f);
+                groundedStates.put(character, false);
+                grounded = false;
+            }
+
+            // --- Apply gravity if not grounded ---
+            if (!grounded) {
+                character.setVelocityY(character.getVelocityY() + gravity * elapsed);
+                character.setY(character.getY() + character.getVelocityY() * elapsed);
+                checkTileCollisionVertical(character, elapsed);
+            }
+
+            // --- Ground state checks ---
+            if (grounded && noTileUnderPlayer(character)) groundedStates.put(character, false);
+            if (character.getVelocityY() > 0) groundedStates.put(character, false);
+
+            character.update(elapsed);
+        }
+    }
 	
     /**
      * Update any sprites and check for collisions
@@ -305,16 +358,16 @@ public class Game extends GameCore
     public void update(long elapsed) {
         // Always clear from previous frame
         collidedTiles.clear();
+        // Scroll bg1 (index 1) slowly to the left
+        bg1ScrollOffset -= 0.01f * elapsed;  // tune speed here
 
-        // -----------------------------------------------------------
-        // 1) NPC: simple gravity & movement (no skipping vertical collisions here)
-        // -----------------------------------------------------------
-        npc1.setVelocityY(npc1.getVelocityY() + (gravity * elapsed));
-        npc1.setY(npc1.getY() + npc1.getVelocityY() * elapsed);
-        checkTileCollisionVertical(npc1, elapsed);
 
-        npc1.setX(npc1.getX() + npc1.getVelocityX() * elapsed);
-        checkTileCollisionHorizontal(npc1, elapsed);
+        updateNpcs(characterSprites,elapsed);
+
+
+
+
+
 
         // -----------------------------------------------------------
         // 2) Handle jumping (only if we’re currently grounded)
@@ -353,8 +406,12 @@ public class Game extends GameCore
         }
 
         // Move player horizontally and check for collisions
-        player.setX(player.getX() + player.getVelocityX() * elapsed);
-        checkTileCollisionHorizontal(player, elapsed);
+        // Move player horizontally only if moving
+        if (player.getVelocityX() != 0) {
+            player.setX(player.getX() + player.getVelocityX() * elapsed);
+            checkTileCollisionHorizontal(player, elapsed);
+        }
+
 
         // -----------------------------------------------------------
         // 4) If grounded, check whether we are still on a valid tile
@@ -389,7 +446,7 @@ public class Game extends GameCore
         // 6) Update animations, check collisions, etc.
         // -----------------------------------------------------------
         player.update(elapsed);
-        npc1.update(elapsed);
+
 
         if (boundingBoxCollision(player, npc1)) {
             long currentTime = System.currentTimeMillis();
@@ -528,12 +585,7 @@ public class Game extends GameCore
                     collidedTiles.add(new Tile(currentMap.getTileChar(leftTileX, ty), leftTileX, ty));
                     s.setVelocityX(0);
 
-                    // NPC turn-around logic
-                    if (s == npc1) {
-                        npc1.setVelocityX(0.02f);  // turn right
-                        newX += 20;
-                        npc1.flip(false);
-                    }
+
                     break;
                 }
             }
@@ -548,12 +600,7 @@ public class Game extends GameCore
                     collidedTiles.add(new Tile(currentMap.getTileChar(rightTileX, ty), rightTileX, ty));
                     s.setVelocityX(0);
 
-                    // NPC turn-around logic
-                    if (s == npc1) {
-                        npc1.setVelocityX(-0.02f);  // turn left
-                        newX += -20;
-                        npc1.flip(true);
-                    }
+
                     break;
                 }
             }
@@ -634,6 +681,8 @@ public class Game extends GameCore
                     // We’ve landed on something, so we can jump again
                     if(s.equals(player)){
                         this.playerGrounded = true;
+                    }else {
+                        groundedStates.put(s, true);
                     }
                     break; // no need to keep checking
                 }
