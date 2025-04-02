@@ -41,17 +41,23 @@ public class Game extends GameCore
     boolean moveLeft = false;
     boolean debug = true;		
 
-    //npc1
-    boolean npcMovingRight = true;
+
+
 
     // Game resources
     Animation landing;
     Animation idle;
     Animation run;
     Animation damaged;
-    
+    Animation blueRun;
+
+    ArrayList<Image> parallaxLayers = new ArrayList<>();
+
+
     Sprite	player = null;
     Sprite npc1 = null;
+
+
     ArrayList<Sprite> 	clouds = new ArrayList<Sprite>();
     ArrayList<Tile>		collidedTiles = new ArrayList<Tile>();
 
@@ -59,14 +65,15 @@ public class Game extends GameCore
 
     TileMap tmap = new TileMap();	// Our tile map, note that we load it in init()
     TileMap tmap2 = new TileMap();
+
     TileMap currentMap;
 
 
-    long total;         			// The score will be the total time elapsed since a crash
+    long total;
     int playerHealth = 3;
     long damageCooldown = 1000;
     long lastDamageTaken = 0;
-    boolean isPlayerInvincible = false;
+
 
 
     /**
@@ -106,18 +113,23 @@ public class Game extends GameCore
 
         // Create a set of background sprites that we can 
         // rearrange to give the illusion of motion
-        
-        landing = new Animation();
-        landing.loadAnimationFromSheet("images/landbird.png", 4, 1, 60);
+
+        for (int i = 7; i >= 1; i--) {
+            Image img = loadImage("images/bg" + i + ".png");
+            parallaxLayers.add(img);
+        }
 
         run = new Animation();
-        run.loadAnimationFromSheet("images/run.png",6,1,85);
+        run.loadAnimationFromSheet("images/run.png",8,1,85);
+
+        blueRun = new Animation();
+        blueRun.loadAnimationFromSheet("images/blueRun.png",8,1,85);
 
         idle = new Animation();
-        idle.loadAnimationFromSheet("images/idle.png",9,1,150);
+        idle.loadAnimationFromSheet("images/idle.png",2,1,150);
 
         damaged = new Animation();
-        damaged.loadAnimationFromSheet("images/damaged.png",5,1,100);
+        damaged.loadAnimationFromSheet("images/damaged.png",6,1,100);
 
         idle.play();
         
@@ -157,16 +169,16 @@ public class Game extends GameCore
 
         player.setPosition(32,750);
         player.setVelocity(0,0);
-        player.setFixedSize(38, 30); // example size — pick one that fits ALL animations
+        player.setFixedSize(26, 32); // example size — pick one that fits ALL animations
         playerHealth = 3;
         player.show();
 
         npc1.setPosition(340,280);
         npc1.setVelocity(0,0);
         npc1.show();
-        npc1.setFixedSize(38, 30);
+        npc1.setFixedSize(26, 30);
         npc1.setVelocityX(0.02f);  // small walking speed
-        npc1.setAnimation(run);    // walking animation
+        npc1.setAnimation(blueRun);    // walking animation
         npc1.flip(false);   // initially facing right
 
     }
@@ -184,11 +196,40 @@ public class Game extends GameCore
     	// see where the player is. To do this, we adjust the offset so that
         // it is relative to the player's position along with a shift
         int xo = -(int)player.getX() + 200;
-        int yo = -(int)player.getY() + 200;
+        int yo = -(int)player.getY() + 220;
 
         g.setColor(Color.white);
         g.fillRect(0, 0, getWidth(), getHeight());
-        
+
+        for (int i = 0; i < parallaxLayers.size(); i++) {
+            Image layer = parallaxLayers.get(i);
+            int imgW = layer.getWidth(null);
+            int imgH = layer.getHeight(null);
+
+            // If it's the blue base background (bg7), tile it to fill the entire screen
+            if (i == 0) {
+                for (int x = 0; x < getWidth(); x += imgW) {
+                    for (int y = 0; y < getHeight(); y += imgH) {
+                        g.drawImage(layer, x, y, null);
+                    }
+                }
+            } else {
+                float parallaxFactor = 0.2f + (i * 0.1f);
+
+                int layerX = (int)(xo * parallaxFactor) % imgW;
+                int layerY = 170; // Fixed vertical offset
+
+                if (layerX > 0) layerX -= imgW;
+
+                for (int x = layerX; x < getWidth(); x += imgW) {
+                    g.drawImage(layer, x, layerY, null);
+                }
+            }
+        }
+
+
+
+
         // Apply offsets to sprites then draw them
         for (Sprite s: clouds)
         {

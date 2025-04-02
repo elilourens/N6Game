@@ -19,9 +19,9 @@
 l..lllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
 l..lllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
 l..llllllllllllllllllllllllllllllllllllllllllllllllll.........ll
-l..llllllllllllllllllllllllllllllllllllllllllllllllll.........ll
-l....................l.............................ll.........ll
-l....................l.............................ll.........ll
+l....................q ............................ll.........ll
+l....................a.............................ll.........ll
+l....................z.............................ll.........ll
 l....................l..............x..............ll.........ll
 l................................lknmkmn...........ll...lll...ll
 l........................nllkl...qlqlqlq...........aa.........ll
