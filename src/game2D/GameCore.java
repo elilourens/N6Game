@@ -52,6 +52,8 @@ public abstract class GameCore extends JFrame implements KeyListener {
     public void stop() { stop = true; }
 
 
+
+
     /** 
      * Starts the game by first initialising the game via init()
      * and then calling the gameLoop()

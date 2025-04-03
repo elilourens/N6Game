@@ -4,7 +4,9 @@ import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 
 import java.awt.Rectangle;
+import java.util.Arrays;
 import java.util.HashMap;
+
 
 
 import game2D.*;
@@ -52,13 +54,20 @@ public class Game extends GameCore
     Animation damaged;
     Animation blueRun;
 
+    Sound hurt;
+    Sound boing;
+    Sound door;
+
     ArrayList<Image> parallaxLayers = new ArrayList<>();
     private float bg1ScrollOffset = 0f;
+    private boolean shouldRestart = false;
 
 
 
     Sprite	player = null;
     Sprite npc1 = null;
+    Sprite npc2 = null;
+    Sprite npc3 = null;
 
 
 
@@ -79,6 +88,7 @@ public class Game extends GameCore
     long damageCooldown = 1000;
     long lastDamageTaken = 0;
 
+    private Sound backgroundMusic;
 
 
     /**
@@ -90,6 +100,14 @@ public class Game extends GameCore
     public static void main(String[] args) {
 
         Game gct = new Game();
+
+        gct.backgroundMusic = new Sound(Arrays.asList(
+                "sounds/music1.wav",
+                "sounds/music2.wav",
+                "sounds/music3.wav"
+        ));
+        gct.backgroundMusic.startLooping();
+
         gct.init();
         // Start in windowed mode with the given screen height and width
         gct.run(false,screenWidth,screenHeight);
@@ -105,12 +123,17 @@ public class Game extends GameCore
      * but you could reset the positions of sprites each time you restart the game).
      */
     public void init()
-    {         
+    {
+
+
+
 
 
         // Load the tile map and print it out so we can check it is valid
         tmap.loadMap("maps", "map.txt");
         tmap2.loadMap("maps","map2.txt");
+
+
         currentMap = tmap;
         
         setSize(currentMap.getPixelWidth()/2, currentMap.getPixelHeight());
@@ -140,6 +163,8 @@ public class Game extends GameCore
         // Initialise the player with an animation
         player = new Sprite(idle);
         npc1 = new Sprite(idle);
+        npc2 = new Sprite(idle);
+        npc3 = new Sprite(idle);
 
         
 
@@ -158,14 +183,21 @@ public class Game extends GameCore
     public void initialiseGame()
     {
     	total = 0;
+        playerHealth = 3;
+        currentMap = tmap;
+        bg1ScrollOffset = 0f; // <-- Reset parallax scroll, kept speeding up paralax on death super annoying.
+
+        characterSprites.clear();
+        groundedStates.clear();
+        collidedTiles.clear();
 
         player.setPosition(32,750);
         player.setVelocity(0,0);
         player.setFixedSize(26, 32); // example size — pick one that fits ALL animations
-        playerHealth = 3;
+
         player.show();
 
-        npc1.setPosition(380,350);
+        npc1.setPosition(380,320);
         npc1.setVelocity(0,0);
         npc1.show();
         npc1.setFixedSize(26, 30);
@@ -174,9 +206,29 @@ public class Game extends GameCore
         npc1.flip(false);   // initially facing right
 
 
+        npc2.setPosition(580,320);
+        npc2.setVelocity(0,0);
+        npc2.show();
+        npc2.setFixedSize(26, 30);
+        npc2.setVelocityX(0.02f);  // small walking speed
+        npc2.setAnimation(blueRun);    // walking animation
+        npc2.flip(false);
+
+        npc3.setPosition(880,320);
+        npc3.setVelocity(0,0);
+        npc3.show();
+        npc3.setFixedSize(26, 30);
+        npc3.setVelocityX(0.02f);  // small walking speed
+        npc3.setAnimation(blueRun);    // walking animation
+        npc3.flip(false);
+
         characterSprites.add(npc1);
+        characterSprites.add(npc2);
+        characterSprites.add(npc3);
 
         groundedStates.put(npc1, false);
+        groundedStates.put(npc2, false);
+        groundedStates.put(npc3, false);
 
 
     }
@@ -243,6 +295,12 @@ public class Game extends GameCore
 
         npc1.setOffsets(xo,yo);
         npc1.drawTransformed(g);
+
+        npc2.setOffsets(xo,yo);
+        npc2.drawTransformed(g);
+
+        npc3.setOffsets(xo,yo);
+        npc3.drawTransformed(g);
 
         
         // Show score and status information
@@ -373,6 +431,7 @@ public class Game extends GameCore
         // 2) Handle jumping (only if we’re currently grounded)
         // -----------------------------------------------------------
         if (jump && playerGrounded) {
+            boing.playOnce("sounds/boing.wav");
             player.setVelocityY(-0.1f);
             player.pauseAnimation();     // Optional: pause animation during jump
             playerGrounded = false;      // No longer on the ground once we jump
@@ -455,14 +514,23 @@ public class Game extends GameCore
                 lastDamageTaken = currentTime;
 
                 if(playerHealth < 1){
-                    init();
+                    backgroundMusic.stop();
+                    shouldRestart = true;
+
                 }
+
+                hurt.playOnce("sounds/hurt.wav");
             }
 
         }
 
         // Optional: keep player from going off bottom of map, etc.
         handleScreenEdge(player, elapsed);
+        if (shouldRestart) {
+            shouldRestart = false;
+            initialiseGame(); // ← only this, not `init()` which stacks everything again
+        }
+
     }
 
 
@@ -529,9 +597,6 @@ public class Game extends GameCore
 			case KeyEvent.VK_UP     : jump = true; break;
 			case KeyEvent.VK_RIGHT  : moveRight = true; break;
             case KeyEvent.VK_LEFT   : moveLeft = true; break;
-			case KeyEvent.VK_S 		: Sound s = new Sound("sounds/caw.wav"); 
-									  s.start();
-									  break;
 			case KeyEvent.VK_ESCAPE : stop(); break;
 			case KeyEvent.VK_B 		: debug = !debug; break; // Flip the debug state
 			default :  break;
@@ -720,6 +785,7 @@ public class Game extends GameCore
                 if (tx >= 0 && ty >= 0 && tx < currentMap.getMapWidth() && ty < currentMap.getMapHeight()) {
                     char tileChar = currentMap.getTileChar(tx, ty);
                     if (tileChar == 'x') {
+                        door.playOnce("sounds/door.wav");
                         if (currentMap == tmap) {
                             currentMap = tmap2;
                         } else {

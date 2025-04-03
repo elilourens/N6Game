@@ -1,40 +1,98 @@
 package game2D;
 
-import java.io.*;
 import javax.sound.sampled.*;
+import java.io.File;
+import java.util.List;
 
-public class Sound extends Thread {
+public class Sound {
 
-	String filename;	// The name of the file to play
-	boolean finished;	// A flag showing that the thread has finished
-	
-	public Sound(String fname) {
-		filename = fname;
-		finished = false;
+	private List<String> playlist;
+	private int currentIndex = 0;
+	private Clip clip;
+
+	public Sound(List<String> playlist) {
+		this.playlist = playlist;
 	}
 
-	/**
-	 * run will play the actual sound but you should not call it directly.
-	 * You need to call the 'start' method of your sound object (inherited
-	 * from Thread, you do not need to declare your own). 'run' will
-	 * eventually be called by 'start' when it has been scheduled by
-	 * the process scheduler.
-	 */
-	public void run() {
+	public void startLooping() {
+		playNext();
+	}
+
+	public static void playOnce(String filepath) {
+		new Thread(() -> {
+			try {
+				File file = new File(filepath);
+				if (!file.exists()) {
+					System.err.println("Sound file not found: " + file.getAbsolutePath());
+					return;
+				}
+
+				AudioInputStream stream = AudioSystem.getAudioInputStream(file);
+				AudioFormat base = stream.getFormat();
+				AudioFormat decoded = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED,
+						base.getSampleRate(), 16, base.getChannels(),
+						base.getChannels() * 2, base.getSampleRate(), false);
+				stream = AudioSystem.getAudioInputStream(decoded, stream);
+
+				Clip clip = AudioSystem.getClip();
+				clip.open(stream);
+				clip.start();
+			} catch (Exception e) {
+				System.err.println("Error playing one-shot sound: " + filepath);
+				e.printStackTrace();
+			}
+		}).start();
+	}
+
+
+	private void playNext() {
 		try {
+			String filename = playlist.get(currentIndex);
 			File file = new File(filename);
+			if (!file.exists()) {
+				System.err.println("File not found: " + file.getAbsolutePath());
+				return;
+			}
+
 			AudioInputStream stream = AudioSystem.getAudioInputStream(file);
-			AudioFormat	format = stream.getFormat();
-			DataLine.Info info = new DataLine.Info(Clip.class, format);
-			Clip clip = (Clip)AudioSystem.getLine(info);
-			clip.open(stream);
+			AudioFormat baseFormat = stream.getFormat();
+			AudioFormat decodedFormat = new AudioFormat(
+					AudioFormat.Encoding.PCM_SIGNED,
+					baseFormat.getSampleRate(),
+					16,
+					baseFormat.getChannels(),
+					baseFormat.getChannels() * 2,
+					baseFormat.getSampleRate(),
+					false
+			);
+
+			AudioInputStream decodedStream = AudioSystem.getAudioInputStream(decodedFormat, stream);
+
+			clip = AudioSystem.getClip();
+			clip.open(decodedStream);
 			clip.start();
-			Thread.sleep(100);
-			while (clip.isRunning()) { Thread.sleep(100); }
+
+			// When it ends, move to next track
+			clip.addLineListener(event -> {
+				if (event.getType() == LineEvent.Type.STOP) {
+					clip.close();
+					currentIndex = (currentIndex + 1) % playlist.size();
+					playNext();
+				}
+			});
+
+		} catch (Exception e) {
+			System.err.println("Error playing track: " + playlist.get(currentIndex));
+			e.printStackTrace();
+		}
+	}
+	public void stop() {
+
+		if (clip != null) {
+			clip.stop();
 			clip.close();
 		}
-		catch (Exception e) {	}
-		finished = true;
 
 	}
+
 }
