@@ -262,21 +262,21 @@ public class Game extends GameCore
         }
 
 
-        //Now do paralax layers on that blue background and set it to be lower down.
+        //Now do paralax layers on that blue background and set layerY to be lower down.
         for (int i = 1; i < parallaxLayers.size(); i++) {
             Image layer = parallaxLayers.get(i);
-            int imgW = layer.getWidth(null);
+            int imageWidth = layer.getWidth(null);
 
 
             float parallaxFactor = 0.2f + (i * 0.1f);
             int layerY = 170;
 
             // Add auto-scrolling to bg1 (index 1 ONLY).
-            int layerX = (int)((xo * parallaxFactor + (i == 1 ? bg1ScrollOffset : 0)) % imgW);
-            if (layerX > 0) layerX -= imgW;
+            int layerX = (int)((xo * parallaxFactor + (i == 1 ? bg1ScrollOffset : 0)) % imageWidth);
+            if (layerX > 0) layerX -= imageWidth;
 
             // As image is too small for screen tile it horizontally.
-            for (int x = layerX; x < getWidth(); x += imgW) {
+            for (int x = layerX; x < getWidth(); x += imageWidth) {
                 g.drawImage(layer, x, layerY, null);
             }
         }
@@ -546,7 +546,7 @@ public class Game extends GameCore
     }
 
 
-    boolean noTileUnderPlayer(Sprite s) {
+    public boolean noTileUnderPlayer(Sprite s) {
 
         float bottom = s.getY() + s.getHeight();
         float midX   = s.getX() + s.getWidth() / 2;
