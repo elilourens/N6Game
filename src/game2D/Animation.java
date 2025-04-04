@@ -223,7 +223,7 @@ public class Animation {
 
         //System.out.println("Sheet size: " + sheet.getWidth(null) + "x" + sheet.getHeight(null));
         //System.out.println("Calculated sprite size: " + width + "x" + height);
-        // for each column in each row
+        //for each column in each row
         for(int i = 0; i < rows; i++)
         {
             for(int j = 0; j < columns; j++)

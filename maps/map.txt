@@ -13,7 +13,9 @@
 #q=pillartop.png
 #a=pillarmid.png
 #z=pillarbottom.png
+#o=key.png
 #x=door.png
+#t=door.png
 // The actual tile map is preceded by the #map line
 #map
 l..lllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
@@ -24,8 +26,8 @@ l....................a.............................ll.........ll
 l....................z.............................ll.........ll
 l....................l..............x..............ll.........ll
 l................................lknmkmn...........ll...lll...ll
-l........................nllkll..qlqlqlq...........aa.........ll
-l....................m..l........alalala...........aa.........ll
+l........................nllkll..qlqlqlq.l.........a..........ll
+l....................m..l........alalala...l.......t.........lll
 l........l...........l...........zlzlzlz..........llllllllllllll
 llknmllnklllllllllnmlllllkllllkllllllllllllkmnllllllllllllllllll
 

@@ -6,9 +6,14 @@ import java.util.List;
 
 public class Sound {
 
+
 	private List<String> playlist;
 	private int currentIndex = 0;
 	private Clip clip;
+	private boolean stoppedManually = false;
+
+
+	private boolean bitCrusherEnabled = false;
 
 	public Sound(List<String> playlist) {
 		this.playlist = playlist;
@@ -18,6 +23,12 @@ public class Sound {
 		playNext();
 	}
 
+	public void enableBitCrusher(boolean enable) {
+		this.bitCrusherEnabled = enable;
+	}
+
+
+	//playing the wav sound effects I use this method:
 	public static void playOnce(String filepath) {
 		new Thread(() -> {
 			try {
@@ -38,21 +49,47 @@ public class Sound {
 				clip.open(stream);
 				clip.start();
 			} catch (Exception e) {
-				System.err.println("Error playing one-shot sound: " + filepath);
-				e.printStackTrace();
+
 			}
 		}).start();
 	}
 
+	//Method to create the distortion effect when you are 1hp.
+	private byte[] applyBitCrusher(byte[] samples) {
+		byte[] result = new byte[samples.length];
 
+		int step = 548;
+
+		//go through the array two bytes at a time
+		for (int i = 0; i < samples.length - 1; i += 2) {
+
+			//gets two bytes and combine them.
+			int low = samples[i] & 0xFF;
+			int high = samples[i + 1];
+			int sample = (high << 8) | low;
+
+
+			sample = (sample / step) * step;
+
+			//make sure the values are valid.
+			if (sample > Short.MAX_VALUE) sample = Short.MAX_VALUE;
+			if (sample < Short.MIN_VALUE) sample = Short.MIN_VALUE;
+
+
+			result[i] = (byte) (sample & 0xFF);
+			result[i + 1] = (byte) ((sample >> 8) & 0xFF);
+		}
+
+		return result;
+	}
+
+
+	//main method to play background music !
 	private void playNext() {
-		try {
+		try { //incase there is an issue with loading music.
 			String filename = playlist.get(currentIndex);
 			File file = new File(filename);
-			if (!file.exists()) {
-				System.err.println("File not found: " + file.getAbsolutePath());
-				return;
-			}
+
 
 			AudioInputStream stream = AudioSystem.getAudioInputStream(file);
 			AudioFormat baseFormat = stream.getFormat();
@@ -68,31 +105,50 @@ public class Sound {
 
 			AudioInputStream decodedStream = AudioSystem.getAudioInputStream(decodedFormat, stream);
 
+			// If bitcrusher is enabled
+			if (bitCrusherEnabled) {
+				byte[] rawBytes = decodedStream.readAllBytes();
+				byte[] crushed = applyBitCrusher(rawBytes);
+
+				decodedStream = new AudioInputStream(
+						new java.io.ByteArrayInputStream(crushed),
+						decodedFormat,
+						crushed.length / decodedFormat.getFrameSize()
+				);
+			}
+
 			clip = AudioSystem.getClip();
 			clip.open(decodedStream);
 			clip.start();
 
-			// When it ends, move to next track
 			clip.addLineListener(event -> {
 				if (event.getType() == LineEvent.Type.STOP) {
 					clip.close();
-					currentIndex = (currentIndex + 1) % playlist.size();
-					playNext();
+					clip = null;
+
+					if (!stoppedManually) {
+						currentIndex = (currentIndex + 1) % playlist.size();
+						playNext();
+					}
+					stoppedManually = false; //reset for next track
 				}
 			});
 
+
 		} catch (Exception e) {
-			System.err.println("Error playing track: " + playlist.get(currentIndex));
-			e.printStackTrace();
+
 		}
 	}
-	public void stop() {
 
-		if (clip != null) {
+	//Stop the music. Used to reset bg music.
+	public void stop() {
+		if (clip != null && clip.isRunning()) {
+			stoppedManually = true;
 			clip.stop();
 			clip.close();
+			clip = null;
 		}
-
 	}
+
 
 }

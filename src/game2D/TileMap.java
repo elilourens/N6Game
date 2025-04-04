@@ -159,7 +159,7 @@ public class TileMap
 						System.err.println("Failed to load image '" + folder + "/" + fileName + "'");
 				}
 			}
-            System.out.print(imagemap);
+            //System.out.print(imagemap);
 			
 			// Check the map dimensione are at least > 0
 			if ((mapWidth > 0) && (mapHeight > 0))
